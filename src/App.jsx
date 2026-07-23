@@ -14,8 +14,8 @@ const CATEGORIES = [
 const REGIONS = ['서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '강원', '경남', '경북', '전남', '전북', '충남', '충북', '제주'];
 
 export default function App() {
-  const [session, setSession] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showLoginLockModal, setShowLoginLockModal] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -42,12 +42,12 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId) => {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
     if (data) setProfile(data);
   };
 
-  const handleAuth = async (e: React.FormEvent) => {
+  const handleAuth = async (e) => {
     e.preventDefault();
     if (isSignUp) {
       const { data, error } = await supabase.auth.signUp({
@@ -80,7 +80,7 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
-  const handleActionRequireAuth = (actionCallback: () => void) => {
+  const handleActionRequireAuth = (actionCallback) => {
     if (!session) {
       setShowLoginLockModal(true);
     } else {
@@ -90,7 +90,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-100 text-gray-900 font-sans pb-12">
-      {/* 1. 상단 그라데이션 헤더 (보내주신 시안 UI 완전 동일) */}
+      {/* 1. 상단 그라데이션 헤더 */}
       <header className="bg-gradient-to-r from-purple-600 to-pink-500 text-white p-4 flex justify-between items-center shadow-md">
         <h1 className="text-3xl font-extrabold tracking-wider">이음</h1>
         <div>
@@ -149,7 +149,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* 3. 이음스와이프 (카드뉴스 가로 스크롤형 UI) */}
+        {/* 3. 이음스와이프 */}
         <section className="border-b border-gray-300 py-3">
           <div className="flex justify-between items-center px-3 mb-2">
             <span className="font-bold text-lg flex items-center gap-1">
@@ -158,12 +158,11 @@ export default function App() {
             <span className="text-red-500 font-bold text-sm">[999+]</span>
           </div>
           
-          {/* 가로 스크롤 카드들 */}
           <div className="flex gap-3 overflow-x-auto px-3 pb-2 scrollbar-hide">
             {[
-              { tag: '카드값줘제리 | 패션 | 부산', title: '돈 쉽게 버는법', img: 'https://via.placeholder.com/150', count: '4장' },
-              { tag: '비즈니스맨 | 영업•마케팅 | 광주', title: '여행사 차리겠다고 사퇴한지 1년 후기', img: 'https://via.placeholder.com/150', count: '10장' },
-              { tag: '도친놈레친놈미친놈 | IT | 경기', title: '지금부터 1년, IT로 대박나겠습니다', img: 'https://via.placeholder.com/150', count: '7장' },
+              { tag: '카드값줘제리 | 패션 | 부산', title: '돈 쉽게 버는법', count: '4장' },
+              { tag: '비즈니스맨 | 영업•마케팅 | 광주', title: '여행사 차리겠다고 사퇴한지 1년 후기', count: '10장' },
+              { tag: '도친놈레친놈미친놈 | IT | 경기', title: '지금부터 1년, IT로 대박나겠습니다', count: '7장' },
             ].map((card, idx) => (
               <div key={idx} className="min-w-[140px] max-w-[140px] border rounded-lg p-2 shadow-sm bg-white shrink-0 cursor-pointer" onClick={() => handleActionRequireAuth(() => {})}>
                 <p className="text-[10px] text-gray-500 truncate">{card.tag}</p>
@@ -199,14 +198,14 @@ export default function App() {
           </div>
         </section>
 
-        {/* 5. 기타 게시판 하단 메뉴 */}
+        {/* 5. 기타 하단 메뉴 */}
         <div className="flex justify-around items-center p-4 text-sm font-bold text-gray-700 border-b">
           <span>• 실 제 사 례</span>
           <span>• 사 기 피 해</span>
           <span>• 공 지 사 항</span>
         </div>
 
-        {/* 6. 하단 분홍색 대형 이음질문 바로가기 버튼 */}
+        {/* 6. 하단 버튼 */}
         <div className="p-4">
           <button 
             onClick={() => handleActionRequireAuth(() => {})} 
@@ -217,7 +216,7 @@ export default function App() {
         </div>
       </main>
 
-      {/* 팝업 1: 권한 제어 모달 (시안 2번째 이미지 정확히 구현) */}
+      {/* 팝업 1: 로그인 권한 경고 모달 */}
       {showLoginLockModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-sm text-center shadow-2xl">
