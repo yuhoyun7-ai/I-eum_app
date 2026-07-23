@@ -1,72 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { 
-  MessageSquare, ThumbsUp, Award, User, LogOut, Trash2, 
-  Search, PlusCircle, DollarSign, Calendar, Flame, CheckCircle, 
-  MapPin, Briefcase, Lock, ShieldAlert, Image as ImageIcon, TrendingUp
-} from 'lucide-react';
 
-// ==========================================
-// 1. Supabase 설정 (본인 정보 입력)
-// ==========================================
-const SUPABASE_URL = "https://prlxwvwglhktnrzgkpqz.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBybHh3dndnbGhrdG5yemdrcHF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3MjUzMzcsImV4cCI6MjEwMDMwMTMzN30.xKu7xNCzH9cvPhBYeBdEpz2IUlvIMsR3R57GSXpCCvY";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// 카테고리 목록
 const CATEGORIES = [
-  "전체", "이음스와이프", "이음지원", "이음질문", 
-  "이음모의투자", "인기글", "자유게시판", "창업정보", "출석체크"
+  'IT', '콘텐츠', '영업•마케팅', '유통', '요식업', '바이오•헬스케어', 
+  '환경•에너지', '패션•뷰티', '모빌리티', '서비스', '금융•비즈니스', 
+  '교육', '복지', '인테리어', '디자인', '기술'
 ];
 
-const BIZ_CATEGORIES = [
-  "외식/음식점", "카페/디저트", "IT/소프트웨어", "쇼핑몰/커머스", 
-  "교육/학원", "뷰티/미용", "건강/헬스", "물류/유통", 
-  "제조/생산", "농림축수산", "문화/예술", "관광/숙박", 
-  "부동산/건설", "전문서비스", "기타 서비스", "예비창업"
-];
-
-const REGIONS = [
-  "서울", "경기", "인천", "강원", "충북", "충남", 
-  "대전", "세종", "전북", "전남", "광주", "경북", 
-  "경남", "대구", "울산", "부산", "제주"
-];
+const REGIONS = ['서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '강원', '경남', '경북', '전남', '전북', '충남', '충북', '제주'];
 
 export default function App() {
-  // 상태 관리
-  const [session, setSession] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [posts, setPosts] = useState([]);
-  const [activeTab, setActiveTab] = useState("전체");
-  const [selectedPost, setSelectedPost] = useState(null);
-  const [comments, setComments] = useState([]);
-  
-  // 모달 상태
+  const [session, setSession] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState('login'); // 'login' | 'signup'
-  const [showWriteModal, setShowWriteModal] = useState(false);
-  const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [showLoginLockModal, setShowLoginLockModal] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
 
-  // 폼 입력 상태
+  // Form States
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
-  const [bizCategory, setBizCategory] = useState(BIZ_CATEGORIES[0]);
+  const [category, setCategory] = useState(CATEGORIES[0]);
   const [region, setRegion] = useState(REGIONS[0]);
 
-  // 글쓰기 폼
-  const [postTitle, setPostTitle] = useState('');
-  const [postCategory, setPostCategory] = useState('자유게시판');
-  const [postContent, setPostContent] = useState('');
-  const [postTarget, setPostTarget] = useState('');
-  const [postRegion, setPostRegion] = useState('');
-  const [postImages, setPostImages] = useState([]);
-  
-  // 댓글 폼
-  const [commentInput, setCommentInput] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // 1. 초기 세션 및 게시글 로드
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -79,595 +39,253 @@ export default function App() {
       else setProfile(null);
     });
 
-    fetchPosts();
     return () => subscription.unsubscribe();
-  }, [activeTab]);
+  }, []);
 
-  // 프로필 조회
-  const fetchProfile = async (userId) => {
+  const fetchProfile = async (userId: string) => {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
     if (data) setProfile(data);
   };
 
-  // 게시글 로드
-  const fetchPosts = async () => {
-    let query = supabase.from('posts').select('*').order('created_at', { ascending: false });
-    
-    if (activeTab === "인기글") {
-      query = query.gte('likes', 20);
-    } else if (activeTab !== "전체") {
-      query = query.eq('category', activeTab);
-    }
-
-    const { data } = await query;
-    if (data) setPosts(data);
-  };
-
-  // 회원가입
-  const handleSignUp = async (e) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { nickname, biz_category: bizCategory, region }
-      }
-    });
-
-    if (error) alert(error.message);
-    else {
-      alert("회원가입이 완료되었습니다!");
-      setShowAuthModal(false);
-    }
-  };
-
-  // 로그인
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) alert("로그인 정보가 올바르지 않습니다.");
-    else setShowAuthModal(false);
-  };
-
-  // 비로그인 차단 가드
-  const requireAuth = (actionCallback) => {
-    if (!session) {
-      setShowAuthModal(true);
-      return;
-    }
-    actionCallback();
-  };
-
-  // 게시글 상세 열기
-  const openPostDetail = async (post) => {
-    requireAuth(async () => {
-      setSelectedPost(post);
-      const { data } = await supabase
-        .from('comments')
-        .select('*')
-        .eq('post_id', post.id)
-        .order('created_at', { ascending: true });
-      if (data) setComments(data);
-    });
-  };
-
-  // 게시글 작성
-  const handleCreatePost = async (e) => {
-    e.preventDefault();
-    if (!session) return;
-
-    let rewardMoney = 0;
-    if (postCategory === "이음스와이프") rewardMoney = 100000;
-
-    const { data, error } = await supabase.from('posts').insert([{
-      user_id: session.user.id,
-      author_nickname: profile?.nickname || '익명',
-      author_biz: profile?.biz_category,
-      author_region: profile?.region,
-      is_admin: profile?.is_admin || false,
-      title: postTitle,
-      category: postCategory,
-      content: postContent,
-      target_user: postTarget,
-      support_region: postRegion,
-      images: postImages
-    }]).select();
-
-    if (!error) {
-      if (rewardMoney > 0) {
-        await supabase.rpc('add_eum_money', { user_id: session.user.id, amount: rewardMoney });
-        alert(`${postCategory} 작성 보상으로 ${rewardMoney.toLocaleString()}원 지급!`);
-        fetchProfile(session.user.id);
-      }
-      setShowWriteModal(false);
-      setPostTitle('');
-      setPostContent('');
-      fetchPosts();
-    }
-  };
-
-  // 댓글 작성
-  const handleCreateComment = async () => {
-    if (!commentInput.trim() || !selectedPost) return;
-
-    const { error } = await supabase.from('comments').insert([{
-      post_id: selectedPost.id,
-      user_id: session.user.id,
-      author_nickname: profile?.nickname || '익명',
-      author_biz: profile?.biz_category,
-      author_region: profile?.region,
-      is_admin: profile?.is_admin || false,
-      content: commentInput
-    }]);
-
-    if (!error) {
-      setCommentInput('');
-      openPostDetail(selectedPost);
-    }
-  };
-
-  // 삭제 권한 (본인 또는 관리자)
-  const handleDeletePost = async (postId) => {
-    if (!confirm("정말 삭제하시겠습니까?")) return;
-    const { error } = await supabase.from('posts').delete().eq('id', postId);
-    if (!error) {
-      setSelectedPost(null);
-      fetchPosts();
-    }
-  };
-
-  // 좋아요 클릭
-  const handleLike = async (post) => {
-    requireAuth(async () => {
-      const newLikes = (post.likes || 0) + 1;
-      await supabase.from('posts').update({ likes: newLikes }).eq('id', post.id);
-      
-      // 20개 달성 시 인기글 보상
-      if (newLikes === 20) {
-        await supabase.rpc('add_eum_money', { user_id: post.user_id, amount: 100000 });
-        alert("🎉 좋아요 20개 달성! 작성자에게 10만원 이음머니 지급!");
-      }
-      
-      setSelectedPost({ ...post, likes: newLikes });
-      fetchPosts();
-    });
-  };
-
-  // 출석 체크
-  const handleAttendance = async () => {
-    requireAuth(async () => {
-      const { data, error } = await supabase.rpc('claim_daily_attendance', { user_id: session.user.id });
-      if (error) alert("오늘 이미 출석체크를 하셨습니다!");
+    if (isSignUp) {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { nickname, category, region }
+        }
+      });
+      if (error) alert(error.message);
       else {
-        alert("출석체크 완료! 1,000원이 지급되었습니다.");
-        fetchProfile(session.user.id);
+        alert('회원가입 완료! 로그인 해주세요.');
+        setIsSignUp(false);
       }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) alert(error.message);
+      else setShowAuthModal(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin }
     });
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
+
+  const handleActionRequireAuth = (actionCallback: () => void) => {
+    if (!session) {
+      setShowLoginLockModal(true);
+    } else {
+      actionCallback();
+    }
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 font-sans">
-      {/* 1. 상단 네비게이션 헤더 */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => setActiveTab("전체")}>
-            <div className="bg-indigo-600 text-white font-black px-2.5 py-1 rounded-lg text-xl tracking-wider">
-              이음
+    <div className="min-h-screen bg-gray-100 text-gray-900 font-sans pb-12">
+      {/* 1. 상단 그라데이션 헤더 (보내주신 시안 UI 완전 동일) */}
+      <header className="bg-gradient-to-r from-purple-600 to-pink-500 text-white p-4 flex justify-between items-center shadow-md">
+        <h1 className="text-3xl font-extrabold tracking-wider">이음</h1>
+        <div>
+          {session && profile ? (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="font-bold">
+                {profile.nickname} {profile.is_admin && '🎖️'}
+              </span>
+              <span className="text-xs bg-black/20 px-2 py-1 rounded">
+                {profile.category} | {profile.region}
+              </span>
+              <button onClick={handleSignOut} className="ml-2 underline text-xs">로그아웃</button>
             </div>
-            <span className="font-bold text-slate-700 text-sm hidden sm:inline">창업자 커뮤니티</span>
-          </div>
-
-          {/* 프로필 / 로그인 버튼 */}
-          <div className="flex items-center space-x-3">
-            {session && profile ? (
-              <div className="flex items-center space-x-3 bg-slate-50 border border-slate-200 rounded-full py-1 px-3">
-                <div className="flex items-center space-x-1 text-xs">
-                  {profile.is_admin && <span className="text-amber-500 font-extrabold">🎖️관리자</span>}
-                  <span className="font-bold text-slate-800">{profile.nickname}</span>
-                  <span className="text-slate-400">({profile.region})</span>
-                </div>
-                <div className="flex items-center space-x-1 bg-indigo-50 text-indigo-700 font-bold text-xs px-2 py-0.5 rounded-full">
-                  <DollarSign className="w-3 h-3" />
-                  <span>{profile.eum_money?.toLocaleString()}원</span>
-                </div>
-                <button 
-                  onClick={() => supabase.auth.signOut()}
-                  className="text-slate-400 hover:text-slate-600 p-1"
-                  title="로그아웃"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => { setAuthMode('login'); setShowAuthModal(true); }}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition"
-              >
-                로그인 / 회원가입
-              </button>
-            )}
-          </div>
+          ) : (
+            <button 
+              onClick={() => setShowAuthModal(true)} 
+              className="font-bold text-sm hover:underline"
+            >
+              로그인/회원가입
+            </button>
+          )}
         </div>
       </header>
 
-      {/* 2. 게시판 카테고리 탭 (가로 스크롤) */}
-      <nav className="bg-white border-b border-slate-200 sticky top-16 z-30 shadow-2xs">
-        <div className="max-w-4xl mx-auto px-2 flex space-x-1 overflow-x-auto scrollbar-none py-2">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveTab(cat)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                activeTab === cat
-                  ? "bg-indigo-600 text-white shadow-xs"
-                  : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              {cat === "인기글" && <Flame className="w-3 h-3 inline mr-1 text-amber-400" />}
-              {cat}
-            </button>
-          ))}
-        </div>
-      </nav>
-
-      {/* 3. 메인 콘텐츠 영역 */}
-      <main className="max-w-4xl mx-auto px-4 py-6">
-        {/* 상단 액션 바: 검색 & 글쓰기 & 출석체크 */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6 bg-white p-4 rounded-xl shadow-xs border border-slate-200">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-            <input
-              type="text"
-              placeholder="게시글 및 키워드 검색..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleAttendance}
-              className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold px-3 py-2 rounded-lg flex items-center space-x-1 transition"
-            >
-              <CheckCircle className="w-3.5 h-3.5" />
-              <span>출석체크 (+1천원)</span>
-            </button>
-
-            <button
-              onClick={() => requireAuth(() => setShowWriteModal(true))}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center space-x-1 shadow-xs transition"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>글쓰기</span>
-            </button>
-          </div>
+      {/* Main Container */}
+      <main className="max-w-md mx-auto bg-white min-h-screen shadow-lg border-x border-gray-200">
+        
+        {/* 전체게시판 타이틀 */}
+        <div className="p-4 border-b border-gray-300">
+          <h2 className="text-2xl font-black">전체게시판</h2>
         </div>
 
-        {/* 게시글 목록 (피드 리스트 형태) */}
-        <div className="space-y-3">
-          {posts
-            .filter(p => p.title.includes(searchQuery) || p.content.includes(searchQuery))
-            .map((post) => (
-              <div
-                key={post.id}
-                onClick={() => openPostDetail(post)}
-                className="bg-white p-4 rounded-xl shadow-2xs border border-slate-200 hover:border-indigo-300 transition cursor-pointer relative"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded">
-                      {post.category}
-                    </span>
-                    {post.likes >= 20 && (
-                      <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded flex items-center">
-                        <Flame className="w-3 h-3 mr-0.5 fill-amber-500" /> 인기
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[11px] text-slate-400">
-                    {new Date(post.created_at).toLocaleDateString()}
-                  </span>
+        {/* 2. 일반게시글 섹션 */}
+        <section className="border-b border-gray-300">
+          <div className="flex justify-between items-center p-3 bg-gray-50 border-b border-gray-200">
+            <span className="font-bold text-lg flex items-center gap-1">
+              일반게시글 <span className="text-sm font-normal">❯</span>
+            </span>
+            <span className="text-red-500 font-bold text-sm">[999+]</span>
+          </div>
+          <div className="divide-y divide-gray-100">
+            <div className="p-3 flex justify-between items-center cursor-pointer hover:bg-gray-50" onClick={() => handleActionRequireAuth(() => {})}>
+              <div>
+                <h3 className="font-bold text-base">창업할때 하면 좋은 꿀팁</h3>
+                <p className="text-xs text-gray-500 mt-1">너혼자산다 | 요식업 | 서울 | 좋아요 11개 | 댓글 27개</p>
+              </div>
+              <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center text-gray-400">🖼️</div>
+            </div>
+            <div className="p-3 flex justify-between items-center cursor-pointer hover:bg-gray-50" onClick={() => handleActionRequireAuth(() => {})}>
+              <div>
+                <h3 className="font-bold text-base">점심메뉴 추천좀</h3>
+                <p className="text-xs text-gray-500 mt-1">오리너구리 | 모빌리티 | 대구 | 좋아요 4개 | 댓글 49개</p>
+              </div>
+              <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center text-gray-400">🖼️</div>
+            </div>
+          </div>
+        </section>
+
+        {/* 3. 이음스와이프 (카드뉴스 가로 스크롤형 UI) */}
+        <section className="border-b border-gray-300 py-3">
+          <div className="flex justify-between items-center px-3 mb-2">
+            <span className="font-bold text-lg flex items-center gap-1">
+              이음스와이프 <span className="text-sm font-normal">❯</span>
+            </span>
+            <span className="text-red-500 font-bold text-sm">[999+]</span>
+          </div>
+          
+          {/* 가로 스크롤 카드들 */}
+          <div className="flex gap-3 overflow-x-auto px-3 pb-2 scrollbar-hide">
+            {[
+              { tag: '카드값줘제리 | 패션 | 부산', title: '돈 쉽게 버는법', img: 'https://via.placeholder.com/150', count: '4장' },
+              { tag: '비즈니스맨 | 영업•마케팅 | 광주', title: '여행사 차리겠다고 사퇴한지 1년 후기', img: 'https://via.placeholder.com/150', count: '10장' },
+              { tag: '도친놈레친놈미친놈 | IT | 경기', title: '지금부터 1년, IT로 대박나겠습니다', img: 'https://via.placeholder.com/150', count: '7장' },
+            ].map((card, idx) => (
+              <div key={idx} className="min-w-[140px] max-w-[140px] border rounded-lg p-2 shadow-sm bg-white shrink-0 cursor-pointer" onClick={() => handleActionRequireAuth(() => {})}>
+                <p className="text-[10px] text-gray-500 truncate">{card.tag}</p>
+                <div className="w-full h-28 bg-gray-800 text-white font-bold text-xs p-2 my-1 flex flex-col justify-end relative rounded">
+                  <span>{card.title}</span>
+                  <span className="absolute bottom-1 right-1 text-[9px] bg-black/60 px-1 rounded">{card.count}</span>
                 </div>
-
-                <h3 className="font-bold text-slate-900 text-sm mb-1.5 line-clamp-1">
-                  {post.title}
-                </h3>
-                <p className="text-slate-600 text-xs mb-3 line-clamp-2 leading-relaxed">
-                  {post.content}
-                </p>
-
-                {/* 하단 메타 정보 */}
-                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-50">
-                  <div className="flex items-center space-x-2">
-                    {post.is_admin && <span className="text-amber-500 font-bold">🎖️</span>}
-                    <span className="font-medium text-slate-700">{post.author_nickname}</span>
-                    <span>•</span>
-                    <span>{post.author_biz}</span>
-                    <span>•</span>
-                    <span>{post.author_region}</span>
-                  </div>
-
-                  <div className="flex items-center space-x-3 text-slate-500">
-                    <span className="flex items-center space-x-1">
-                      <ThumbsUp className="w-3 h-3" />
-                      <span>{post.likes || 0}</span>
-                    </span>
-                    <span className="flex items-center space-x-1">
-                      <MessageSquare className="w-3 h-3" />
-                      <span>{post.comment_count || 0}</span>
-                    </span>
-                  </div>
+                <div className="flex gap-2 text-xs text-gray-600 mt-1">
+                  <span>👍 23</span>
+                  <span>💬 44</span>
                 </div>
               </div>
             ))}
+          </div>
+        </section>
 
-          {posts.length === 0 && (
-            <div className="text-center py-12 bg-white rounded-xl border border-slate-200">
-              <p className="text-slate-400 text-xs">등록된 게시글이 없습니다. 첫 글을 작성해 보세요!</p>
+        {/* 4. 이음파트너 */}
+        <section className="border-b border-gray-300">
+          <div className="flex justify-between items-center p-3 bg-gray-50 border-b border-gray-200">
+            <span className="font-bold text-lg flex items-center gap-1">
+              이음파트너 <span className="text-sm font-normal">❯</span>
+            </span>
+            <span className="text-red-500 font-bold text-sm">[999+]</span>
+          </div>
+          <div className="divide-y divide-gray-100">
+            <div className="p-3 flex justify-between items-center cursor-pointer hover:bg-gray-50" onClick={() => handleActionRequireAuth(() => {})}>
+              <div>
+                <h3 className="font-bold text-base">저랑 같이 중국집 차리실 분</h3>
+                <p className="text-xs text-gray-500 mt-1">광개토대왕 | 요식업 | 인천 | 좋아요 4개 | 댓글 49개</p>
+              </div>
+              <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center text-gray-400">🖼️</div>
             </div>
-          )}
+          </div>
+        </section>
+
+        {/* 5. 기타 게시판 하단 메뉴 */}
+        <div className="flex justify-around items-center p-4 text-sm font-bold text-gray-700 border-b">
+          <span>• 실 제 사 례</span>
+          <span>• 사 기 피 해</span>
+          <span>• 공 지 사 항</span>
+        </div>
+
+        {/* 6. 하단 분홍색 대형 이음질문 바로가기 버튼 */}
+        <div className="p-4">
+          <button 
+            onClick={() => handleActionRequireAuth(() => {})} 
+            className="w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-black text-xl rounded-2xl shadow-lg hover:opacity-95"
+          >
+            이음질문 바로가기
+          </button>
         </div>
       </main>
 
-      {/* 4. 로그인 / 회원가입 팝업 모달 */}
+      {/* 팝업 1: 권한 제어 모달 (시안 2번째 이미지 정확히 구현) */}
+      {showLoginLockModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm text-center shadow-2xl">
+            <h3 className="text-lg font-bold mb-6 text-gray-800">로그인해야 가능한 기능입니다</h3>
+            <button 
+              onClick={() => { setShowLoginLockModal(false); setShowAuthModal(true); }}
+              className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-lg border border-gray-300"
+            >
+              로그인 하러가기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 팝업 2: 로그인 & 회원가입 모달 */}
       {showAuthModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl relative">
-            <div className="text-center mb-6">
-              <div className="inline-flex p-3 bg-indigo-50 rounded-full text-indigo-600 mb-2">
-                <Lock className="w-6 h-6" />
-              </div>
-              <h2 className="text-lg font-bold text-slate-900">
-                {authMode === 'login' ? '로그인이 필요합니다' : '이음 회원가입'}
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                커뮤니티 활동을 위해 계정에 로그인하세요.
-              </p>
-            </div>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm relative shadow-2xl">
+            <button onClick={() => setShowAuthModal(false)} className="absolute top-3 right-3 text-gray-500 font-bold">✕</button>
+            <h2 className="text-xl font-black mb-4 text-center">{isSignUp ? '창업자 회원가입' : '로그인'}</h2>
+            
+            <form onSubmit={handleAuth} className="flex flex-col gap-3">
+              <input 
+                type="email" placeholder="이메일" value={email} required
+                onChange={(e) => setEmail(e.target.value)} 
+                className="p-2 border rounded text-sm"
+              />
+              <input 
+                type="password" placeholder="비밀번호" value={password} required
+                onChange={(e) => setPassword(e.target.value)} 
+                className="p-2 border rounded text-sm"
+              />
 
-            <form onSubmit={authMode === 'login' ? handleLogin : handleSignUp} className="space-y-3">
-              <div>
-                <label className="text-[11px] font-bold text-slate-600">이메일</label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full mt-1 p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg"
-                  placeholder="example@email.com"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-600">비밀번호</label>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full mt-1 p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg"
-                  placeholder="******"
-                />
-              </div>
-
-              {authMode === 'signup' && (
+              {isSignUp && (
                 <>
+                  <input 
+                    type="text" placeholder="닉네임" value={nickname} required
+                    onChange={(e) => setNickname(e.target.value)} 
+                    className="p-2 border rounded text-sm"
+                  />
                   <div>
-                    <label className="text-[11px] font-bold text-slate-600">닉네임</label>
-                    <input
-                      type="text"
-                      required
-                      value={nickname}
-                      onChange={(e) => setNickname(e.target.value)}
-                      className="w-full mt-1 p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg"
-                      placeholder="창업자 닉네임"
-                    />
+                    <label className="text-xs font-bold text-gray-600 block mb-1">분야 카테고리 (택1)</label>
+                    <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full p-2 border rounded text-sm bg-white">
+                      {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-600">업종 분야 (택1)</label>
-                      <select
-                        value={bizCategory}
-                        onChange={(e) => setBizCategory(e.target.value)}
-                        className="w-full mt-1 p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg"
-                      >
-                        {BIZ_CATEGORIES.map(b => <option key={b} value={b}>{b}</option>)}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-600">지역</label>
-                      <select
-                        value={region}
-                        onChange={(e) => setRegion(e.target.value)}
-                        className="w-full mt-1 p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg"
-                      >
-                        {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
-                      </select>
-                    </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-600 block mb-1">지역 선택</label>
+                    <select value={region} onChange={(e) => setRegion(e.target.value)} className="w-full p-2 border rounded text-sm bg-white">
+                      {REGIONS.map(reg => <option key={reg} value={reg}>{reg}</option>)}
+                    </select>
                   </div>
                 </>
               )}
 
-              <button
-                type="submit"
-                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg transition mt-4"
-              >
-                {authMode === 'login' ? '로그인' : '가입하기'}
+              <button type="submit" className="w-full py-2 bg-pink-500 text-white font-bold rounded hover:bg-pink-600 mt-2">
+                {isSignUp ? '가입하기' : '로그인'}
               </button>
             </form>
 
-            <div className="mt-4 text-center">
-              <button
-                onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
-                className="text-xs text-indigo-600 font-bold hover:underline"
-              >
-                {authMode === 'login' ? '계정이 없으신가요? 회원가입' : '이미 계정이 있으신가요? 로그인'}
+            <div className="mt-3 flex flex-col gap-2 border-t pt-3">
+              <button onClick={handleGoogleLogin} className="w-full py-2 bg-white border border-gray-300 font-bold text-sm rounded flex items-center justify-center gap-2 hover:bg-gray-50">
+                🔍 Google로 계속하기
+              </button>
+              <button onClick={() => setIsSignUp(!isSignUp)} className="text-xs text-gray-500 underline text-center">
+                {isSignUp ? '이미 계정이 있으신가요? 로그인' : '계정이 없으신가요? 회원가입'}
               </button>
             </div>
-
-            <button 
-              onClick={() => setShowAuthModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-xs font-bold"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 5. 글쓰기 모달 */}
-      {showWriteModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-2xl p-6 shadow-xl relative max-h-[90vh] overflow-y-auto">
-            <h2 className="text-base font-bold text-slate-900 mb-4">게시글 작성</h2>
-            <form onSubmit={handleCreatePost} className="space-y-4">
-              <div>
-                <label className="text-[11px] font-bold text-slate-600">게시판 선택</label>
-                <select
-                  value={postCategory}
-                  onChange={(e) => setPostCategory(e.target.value)}
-                  className="w-full mt-1 p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg"
-                >
-                  {CATEGORIES.filter(c => c !== "전체" && c !== "인기글").map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-600">제목</label>
-                <input
-                  type="text"
-                  required
-                  value={postTitle}
-                  onChange={(e) => setPostTitle(e.target.value)}
-                  className="w-full mt-1 p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg"
-                  placeholder="제목을 입력하세요"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-600">내용</label>
-                <textarea
-                  required
-                  rows={5}
-                  value={postContent}
-                  onChange={(e) => setPostContent(e.target.value)}
-                  className="w-full mt-1 p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg"
-                  placeholder="내용을 작성하세요..."
-                />
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowWriteModal(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-600 font-bold text-xs rounded-lg"
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-lg"
-                >
-                  등록하기
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 6. 게시글 상세보기 모달 */}
-      {selectedPost && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-2xl rounded-2xl p-6 shadow-xl relative max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <span className="bg-indigo-50 text-indigo-700 text-xs font-bold px-2.5 py-1 rounded">
-                {selectedPost.category}
-              </span>
-              
-              {/* 삭제 버튼 (본인 또는 관리자) */}
-              {(profile?.is_admin || profile?.id === selectedPost.user_id) && (
-                <button
-                  onClick={() => handleDeletePost(selectedPost.id)}
-                  className="text-red-500 hover:text-red-700 text-xs font-bold flex items-center space-x-1"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>삭제</span>
-                </button>
-              )}
-            </div>
-
-            <h2 className="text-lg font-bold text-slate-900 my-3">{selectedPost.title}</h2>
-
-            <div className="flex items-center space-x-2 text-xs text-slate-400 mb-6 pb-3 border-b border-slate-100">
-              {selectedPost.is_admin && <span className="text-amber-500 font-bold">🎖️</span>}
-              <span className="font-bold text-slate-700">{selectedPost.author_nickname}</span>
-              <span>•</span>
-              <span>{selectedPost.author_biz}</span>
-              <span>•</span>
-              <span>{selectedPost.author_region}</span>
-            </div>
-
-            <div className="text-slate-800 text-xs leading-relaxed space-y-3 mb-6 whitespace-pre-wrap">
-              {selectedPost.content}
-            </div>
-
-            {/* 좋아요 버튼 */}
-            <div className="flex justify-center mb-8">
-              <button
-                onClick={() => handleLike(selectedPost)}
-                className="flex items-center space-x-2 px-5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-full font-bold text-xs transition"
-              >
-                <ThumbsUp className="w-4 h-4" />
-                <span>좋아요 {selectedPost.likes || 0}</span>
-              </button>
-            </div>
-
-            {/* 댓글 영역 */}
-            <div className="border-t border-slate-200 pt-4">
-              <h4 className="font-bold text-xs text-slate-800 mb-3">댓글 {comments.length}개</h4>
-              
-              <div className="space-y-2 mb-4">
-                {comments.map((c) => (
-                  <div key={c.id} className="bg-slate-50 p-3 rounded-lg text-xs">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-slate-700">{c.author_nickname}</span>
-                      <span className="text-[10px] text-slate-400">{new Date(c.created_at).toLocaleDateString()}</span>
-                    </div>
-                    <p className="text-slate-600">{c.content}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* 댓글 작성 폼 */}
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  placeholder="댓글을 작성하세요..."
-                  value={commentInput}
-                  onChange={(e) => setCommentInput(e.target.value)}
-                  className="flex-1 p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg"
-                />
-                <button
-                  onClick={handleCreateComment}
-                  className="px-4 py-2.5 bg-indigo-600 text-white font-bold text-xs rounded-lg"
-                >
-                  등록
-                </button>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setSelectedPost(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-xs font-bold"
-            >
-              ✕
-            </button>
           </div>
         </div>
       )}
