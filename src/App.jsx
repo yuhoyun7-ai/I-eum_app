@@ -8,36 +8,69 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export default function App() {
   const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [isLoginView, setIsLoginView] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   useEffect(() => {
     fetchPosts();
   }, []);
 
   async function fetchPosts() {
-    setLoading(false);
-    // Supabase 테이블(posts) 생성 후 주석 해제하면 실제 DB 데이터를 로드합니다.
-    // const { data, error } = await supabase.from('posts').select('*');
-    // if (!error && data) setPosts(data);
+    const { data } = await supabase.from('posts').select('*');
+    if (data) setPosts(data);
   }
 
+  // 로그인 페이지 화면
+  if (isLoginView) {
+    return (
+      <div style={styles.container}>
+        <header style={styles.header}>
+          <h1 style={styles.logo} onClick={() => setIsLoginView(false)}>이음</h1>
+        </header>
+        <div style={styles.authBox}>
+          <h2 style={{ marginBottom: '20px' }}>로그인</h2>
+          <input 
+            type="email" 
+            placeholder="이메일 입력" 
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)}
+            style={styles.input}
+          />
+          <input 
+            type="password" 
+            placeholder="비밀번호 입력" 
+            value={password} 
+            onChange={(e) => setPassword(e.target.value)}
+            style={styles.input}
+          />
+          <button style={styles.mainBtn} onClick={() => alert('로그인 기능 준비 중')}>
+            로그인
+          </button>
+          <button style={styles.subBtn} onClick={() => setIsLoginView(false)}>
+            메인으로 돌아가기
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 메인 화면
   return (
     <div style={styles.container}>
-      {/* 헤더 */}
+      {/* 상단 헤더 */}
       <header style={styles.header}>
         <h1 style={styles.logo}>이음</h1>
-        <button style={styles.authBtn} onClick={() => setShowLoginModal(true)}>
+        <button style={styles.headerAuthBtn} onClick={() => setIsLoginView(true)}>
           로그인/회원가입
         </button>
       </header>
 
       {/* 메인 콘텐츠 */}
       <main style={styles.main}>
-        {/* 전체게시판 */}
         <section style={styles.section}>
           <div style={styles.sectionHeader}>
-            <h2>전체게시판</h2>
+            <h2 style={{ margin: 0, fontSize: '20px' }}>전체게시판</h2>
           </div>
           
           <div style={styles.categoryTitle}>
@@ -51,10 +84,8 @@ export default function App() {
             ) : (
               posts.map((post) => (
                 <div key={post.id} style={styles.postItem}>
-                  <div>
-                    <h3 style={styles.postTitle}>{post.title}</h3>
-                    <p style={styles.postMeta}>{post.author} | {post.category}</p>
-                  </div>
+                  <h3 style={styles.postTitle}>{post.title}</h3>
+                  <p style={styles.postMeta}>{post.author} | {post.category}</p>
                 </div>
               ))
             )}
@@ -62,64 +93,58 @@ export default function App() {
         </section>
 
         {/* 하단 고정 버튼 */}
-        <button style={styles.bottomBtn} onClick={() => setShowLoginModal(true)}>
+        <button style={styles.bottomBtn} onClick={() => setIsLoginView(true)}>
           이음질문 바로가기
         </button>
       </main>
-
-      {/* 로그인 팝업 모달 */}
-      {showLoginModal && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalBox}>
-            <p style={styles.modalText}>로그인해야 가능한 기능입니다</p>
-            <button style={styles.modalBtn} onClick={() => setShowLoginModal(false)}>
-              확인
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
 const styles = {
   container: {
-    maxWidth: '480px',
-    margin: '0 auto',
-    backgroundColor: '#fff',
+    width: '100%',
     minHeight: '100vh',
-    fontFamily: 'sans-serif',
-    position: 'relative',
+    backgroundColor: '#fff',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    boxSizing: 'border-box',
     paddingBottom: '80px',
   },
   header: {
     background: 'linear-gradient(90deg, #4A70E2, #C061CB)',
-    padding: '16px',
+    padding: '16px 20px',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     color: '#fff',
+    width: '100%',
+    boxSizing: 'border-box',
   },
-  logo: { fontSize: '24px', fontWeight: 'bold', margin: 0 },
-  authBtn: { background: 'none', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' },
-  main: { padding: '16px' },
+  logo: { fontSize: '24px', fontWeight: 'bold', margin: 0, cursor: 'pointer' },
+  headerAuthBtn: { 
+    background: 'none', 
+    border: 'none', 
+    color: '#fff', 
+    fontSize: '14px', 
+    fontWeight: 'bold',
+    cursor: 'pointer' 
+  },
+  main: { padding: '20px', width: '100%', boxSizing: 'border-box' },
   section: { marginBottom: '24px' },
-  sectionHeader: { borderBottom: '2px solid #000', paddingBottom: '8px', marginBottom: '12px' },
-  categoryTitle: { display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginBottom: '12px' },
+  sectionHeader: { borderBottom: '2px solid #000', paddingBottom: '10px', marginBottom: '16px' },
+  categoryTitle: { display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '16px', marginBottom: '16px' },
   count: { color: '#e53e3e' },
   list: { display: 'flex', flexDirection: 'column', gap: '12px' },
-  emptyText: { color: '#888', textAlign: 'center', padding: '20px 0' },
-  postItem: { padding: '12px', border: '1px solid #eee', borderRadius: '8px' },
-  postTitle: { fontSize: '16px', margin: '0 0 4px 0' },
+  emptyText: { color: '#888', textAlign: 'center', padding: '40px 0' },
+  postItem: { padding: '14px', border: '1px solid #eee', borderRadius: '8px' },
+  postTitle: { fontSize: '16px', margin: '0 0 6px 0' },
   postMeta: { fontSize: '12px', color: '#666', margin: 0 },
   bottomBtn: {
     position: 'fixed',
     bottom: '16px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: 'calc(100% - 32px)',
-    maxWidth: '448px',
-    padding: '14px',
+    left: '16px',
+    right: '16px',
+    padding: '16px',
     background: 'linear-gradient(90deg, #4A70E2, #C061CB)',
     color: '#fff',
     border: 'none',
@@ -127,17 +152,11 @@ const styles = {
     fontSize: '16px',
     fontWeight: 'bold',
     cursor: 'pointer',
+    boxSizing: 'border-box',
   },
-  modalOverlay: {
-    position: 'fixed',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalBox: { backgroundColor: '#fff', padding: '24px', borderRadius: '12px', textAlign: 'center', width: '280px' },
-  modalText: { marginBottom: '16px', fontWeight: 'bold' },
-  modalBtn: { width: '100%', padding: '10px', backgroundColor: '#333', color: '#fff', border: 'none', borderRadius: '6px' },
+  authBox: { padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' },
+  input: { padding: '12px', fontSize: '15px', borderRadius: '6px', border: '1px solid #ccc' },
+  mainBtn: { padding: '14px', backgroundColor: '#4A70E2', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', marginTop: '10px' },
+  subBtn: { padding: '12px', backgroundColor: '#eee', color: '#333', border: 'none', borderRadius: '6px' },
 };
 
